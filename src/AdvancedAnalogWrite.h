@@ -44,18 +44,6 @@ class AdvancedAnalogWriteClass {
     void write(uint8_t pin, uint8_t BitDepth, uint16_t value);
     void RestartMillisMicros(); // re-enables millis()/micros()/delay() from its last count and delay()/delayMicroseconds()
     word read(uint8_t pin);
- 
-  private:
-    // registers for the previous value of millis()/micros() which uses Timer 0 should it be required again
-    byte Old_TCCR0A;
-    byte Old_TCCR0B;
-    byte Old_TCNT0;
-    byte Old_OCR0A;
-    byte Old_OCR0B;
-    byte Old_TIFR0;
-    byte Old_TIMSK0;
-    bool MillisMicrosStopped = false;
-
 };
 
     // Arduino Leonardo etc

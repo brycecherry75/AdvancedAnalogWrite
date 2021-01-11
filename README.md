@@ -4,6 +4,7 @@ AdvancedAnalogWrite is a library for enabling PWM features on certain pins beyon
 
 Revisions
 v1.0	First release
+v1.01	Eliminated requirement for backup registers affecting millis()/micros()/delay() functions
 
 FEATURES:
 Supported boards (and derivatives): Uno (Mega/Leonardo/ATmega8 will be included in a later release)
@@ -33,6 +34,8 @@ stop(pin): Stop PWM on a certain pin
 write(pin, BitDepth, value): Writes a value to a certain pin - a short pulse may still be present with a PWM value of 0; if your application requires the elimination of this pulse under this condition, initialize with reverse polarity and use the inverse of the required PWM value
 RestartMillisMicros(): Disables PWM on pins used by the timer (usually Timer/Counter 0 and its corresponding OCxx pins) and restarts millis()/micros()/delay()
 read(pin): Reads the PWM value of a certain pin
+
+If you do not intend to use the RestartMillisMicros() function, use #define NO_MILLIS_MICROS_RESTORE before the #include <AdvancedAnalogWrite.h> line to save RAM.
 
 PIN DETAILS WITH PWM RESOLUTIONS:
 Uno (and derivatives): (9/10) (8-10 bit); 6/5 (used by millis/micros/delay - 8 bit), 11/3 (8 bit)
