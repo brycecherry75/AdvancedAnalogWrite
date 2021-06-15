@@ -6,10 +6,16 @@
    MILLIS_MICROS_START (DELAY_TEST): Stop PWM on Pins 5 and 6 and restart millis()/micros()/delay() - DELAY_TEST will test delay
    (3/5/6/9/10/11) STOP: Stop PWM on a pin
    (3/5/6/9/10/11) READ: Read current PWM value from a pin with a given bit resolution
-   (3/5/6/9/10/11) (8/9/10) (PHASE_CORRECT/FAST) (NORMAL/INVERTED) (T0_EXT_RISING/T0_EXT_FALLING/T1_EXT_RISING/T1_EXT_FALLING/1/8/32/64/128/256/1024) (PWM value 0-(255/511/1023) for 8/9/10 bit):
+   (3/5/6/9/10/11) (8/9/10/(3-65535)) (PHASE_CORRECT/FAST/PHASE_FREQ_CORRECT) (NORMAL/INVERTED) (T0_EXT_RISING/T0_EXT_FALLING/T1_EXT_RISING/T1_EXT_FALLING/1/8/32/64/128/256/1024) (0-65535) for 8/9/10 bit) (ICR/OCR): Initialize pin, bit resolution (if ICR/OCR option is used, maximum PWM value), PWM type, polarity, prescaler, PWM value, OCR/ICR option - ICR is optionally used only on Pins 9/10
    Pin number, bit resolution (8/9/10 is supported only on Pins 9/10 - all others are 8), polarity, prescaler (T0_EXT_RISING/T0_EXT_FALLING is supported only on Pins 6/5, T1_EXT_RISING/T1_EXT_FALLING is supported only on Pins 9/10, 32 and 128 is supported only on on Pins 3/11)
+   (3/5/6/9/10/11) INCREMENT value - increments PWM by a given value on a given pin (will not overflow)
+   (3/5/6/9/10/11) DECREMENT value - decrements PWM by a given value on a given pin (will not underflow)
 
 */
+
+#if (!defined(__AVR_ATmega328P__) && !defined(__AVR_ATmega168__) && !defined(__AVR_ATmega88__) && !defined(__AVR_ATmega48__))
+#error This demo sketch can only run on Uno or derivatives
+#endif
 
 #include <AdvancedAnalogWrite.h>
 
@@ -28,9 +34,12 @@ void getField (char* buffer, int index) {
   int FieldPos = 0;
   int SpaceCount = 0;
   while (CommandPos < commandSize) {
-    if (command[CommandPos] == 0x20 || command[CommandPos] == 0x0D || command[CommandPos] == 0x0A) {
+    if (command[CommandPos] == 0x20) {
       SpaceCount++;
       CommandPos++;
+    }
+    if (command[CommandPos] == 0x0D || command[CommandPos] == 0x0A) {
+      break;
     }
     if (SpaceCount == index) {
       buffer[FieldPos] = command[CommandPos];
@@ -75,12 +84,70 @@ void FlushSerialBuffer() {
   }
 }
 
-void PrintOK() {
-  Serial.println(F("OK"));
+void PrintFieldError(byte value) {
+  Serial.print(F("FIELD "));
+  Serial.print(value);
+  Serial.println(F(" INVALID"));
 }
 
-void PrintError() {
-  Serial.println(F("ERROR"));
+void PrintPWMtype(byte value, byte pin) {
+  bool ValidChannel = true;
+  if (value == PhaseCorrectPWM || value == PhaseCorrectPWM_8bit || value == PhaseCorrectPWM_9bit || value == PhaseCorrectPWM_10bit || value == PhaseCorrectPWM_ICR || value == PhaseCorrectPWM_OCR || value == PhaseCorrectPWM_OCR16bit) {
+    Serial.print(F("Phase correct "));
+  }
+  else if (value == FastPWM || value == FastPWM_8bit || value == FastPWM_9bit || value == FastPWM_10bit || value == FastPWM_ICR || value == FastPWM_OCR || value == FastPWM_OCR16bit) {
+    Serial.print(F("Fast "));
+  }
+  else if (value == PhaseFrequencyCorrectPWM_ICR || value == PhaseFrequencyCorrectPWM_OCR16bit) {
+    Serial.print(F("Phase and frequency correct "));
+  }
+  else {
+    ValidChannel = false;
+  }
+  if (ValidChannel == true) {
+    if (value == FastPWM || value == PhaseCorrectPWM || value == PhaseCorrectPWM_8bit || value == FastPWM_8bit) {
+      Serial.print(F("8 bit "));
+    }
+    else if (value == PhaseCorrectPWM_9bit || value == FastPWM_9bit) {
+      Serial.print(F("9 bit "));
+    }
+    else if (value == PhaseCorrectPWM_10bit || value == FastPWM_10bit) {
+      Serial.print(F("10 bit "));
+    }
+    Serial.print(F("PWM"));
+    if (value == PhaseCorrectPWM_ICR || value == PhaseCorrectPWM_OCR || value == PhaseCorrectPWM_OCR16bit || value == FastPWM_ICR || value == FastPWM_OCR || value == FastPWM_OCR16bit || value == PhaseFrequencyCorrectPWM_ICR || value == PhaseFrequencyCorrectPWM_OCR16bit) {
+      Serial.print(F(" with maximum value set on "));
+      if (value == PhaseCorrectPWM_ICR || value == FastPWM_ICR || value == PhaseFrequencyCorrectPWM_ICR) {
+        Serial.print(F("ICR"));
+      }
+      else {
+        Serial.print(F("OCR"));
+      }
+    }
+    Serial.println(F(""));
+  }
+}
+
+void PrintExternalClockType(byte ChannelUsed, bool RisingClockUsed) {
+  bool ValidChannel = true;
+  if (ChannelUsed == 6 || ChannelUsed == 5) {
+    Serial.print(F("T0 "));
+  }
+  else if (ChannelUsed == 9 || ChannelUsed == 10) {
+    Serial.print(F("T1 "));
+  }
+  else {
+    ValidChannel = false;
+  }
+  if (ValidChannel == true) {
+    Serial.print(F("external clock, "));
+    if (RisingClockUsed == true) {
+      Serial.println(F("rising"));
+    }
+    else {
+      Serial.println(F("falling"));
+    }
+  }
 }
 
 void setup() {
@@ -112,7 +179,7 @@ void loop() {
         for (int i = 0; i < 500; i++) {
           delayMicroseconds(10000);
         }
-        Serial.println(F("If you see this line five seconds after the previous, delayMicroseconds() is functional"));
+        Serial.println(F("If you see this line 5 seconds after the previous, delayMicroseconds() is functional"));
         AdvancedAnalogWrite.RestartMillisMicros();
         Serial.println(F("Stopping PWM on Pins 5/6 and restoring millis() and micros()"));
         Serial.print(F("millis() is currently "));
@@ -124,13 +191,13 @@ void loop() {
         bool StopPWM = false;
         bool ReadChannel = false;
         byte channel = 0;
-        byte BitDepth = 0;
+        unsigned long BitDepth = 0;
         channel = atoi(field);
         if (channel == 3 || channel == 5 || channel == 6 || channel == 9 || channel == 10 || channel == 11) {
         }
         else {
           ValidField = false;
-          Serial.println(F("FIELD 0 ERROR"));
+          PrintFieldError(0);
         }
         getField(field, 1);
         if (strcmp(field, "STOP") == 0) {
@@ -145,8 +212,32 @@ void loop() {
           ReadChannel = true;
           Serial.println(AdvancedAnalogWrite.read(channel));
         }
+        else if (strcmp(field, "INCREMENT") == 0) {
+          ReadChannel = true;
+          getField(field, 2);
+          unsigned long value = atol(field);
+          if (((channel == 3 || channel == 5 || channel == 6 || channel == 11) && value <= 255) || ((channel == 9 || channel == 10) && value <= 65535UL)) {
+            AdvancedAnalogWrite.increment(channel, value);
+          }
+          else {
+            ValidField = false;
+            PrintFieldError(2);
+          }
+        }
+        else if (strcmp(field, "DECREMENT") == 0) {
+          ReadChannel = true;
+          getField(field, 2);
+          unsigned long value = atol(field);
+          if (((channel == 3 || channel == 5 || channel == 6 || channel == 11) && value <= 255) || ((channel == 9 || channel == 10) && value <= 65535UL)) {
+            AdvancedAnalogWrite.decrement(channel, value);
+          }
+          else {
+            ValidField = false;
+            PrintFieldError(2);
+          }
+        }
         else {
-          BitDepth = atoi(field);
+          BitDepth = atol(field);
           Serial.print(F("Bit depth: "));
           Serial.println(BitDepth);
         }
@@ -155,71 +246,175 @@ void loop() {
           Serial.println(channel);
           getField(field, 2);
           byte PWMtype;
-          if (strcmp(field, "PHASE_CORRECT") == 0) {
-            if (channel == 9 || channel == 10) { // 8 or 16 bit channel
-              if (BitDepth == 8) {
-                PWMtype = PhaseCorrectPWM_8bit;
-                Serial.println(F("Phase correct 8 bit PWM"));
-              }
-              else if (BitDepth == 9) {
-                PWMtype = PhaseCorrectPWM_9bit;
-                Serial.println(F("Phase correct 9 bit PWM"));
-              }
-              else if (BitDepth == 10) {
-                PWMtype = PhaseCorrectPWM_10bit;
-                Serial.println(F("Phase correct 10 bit PWM"));
+          if (strcmp(field, "FAST") == 0) {
+            if (channel == 9 || channel == 10) { // variable resolution channel
+              getField(field, 6);
+              if (strcmp(field, "ICR") == 0 || strcmp(field, "OCR") == 0) {
+                if (BitDepth >= 3 && BitDepth <= 65535) {
+                  if (strcmp(field, "ICR") == 0) {
+                    PWMtype = FastPWM_ICR;
+                  }
+                  else {
+                    PWMtype = FastPWM_OCR16bit;
+                    if (channel == 9) {
+                      ValidField = false;
+                      PrintFieldError(0);
+                    }
+                  }
+                  PrintPWMtype(PWMtype, channel);
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(1);
+                }
               }
               else {
-                ValidField = false;
-                Serial.println(F("FIELD 1 ERROR"));
+                if (BitDepth == 8) {
+                  PWMtype = FastPWM_8bit;
+                }
+                else if (BitDepth == 9) {
+                  PWMtype = FastPWM_9bit;
+                }
+                else if (BitDepth == 10) {
+                  PWMtype = FastPWM_10bit;
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(1);
+                }
+                if (ValidField == true) {
+                  PrintPWMtype(PWMtype, channel);
+                }
               }
             }
             else { // 8 bit only channel
-              PWMtype = PhaseCorrectPWM;
-              Serial.println(F("Phase correct PWM"));
+              getField(field, 6);
+              PWMtype = FastPWM;
+              if (strcmp(field, "OCR") == 0) {
+                PWMtype = FastPWM_OCR;
+                if (channel == 6 || channel == 11) {
+                  ValidField = false;
+                  PrintFieldError(0);
+                }
+              }
+              else if (BitDepth != 8) {
+                ValidField = false;
+                PrintFieldError(1);
+              }
+              PrintPWMtype(PWMtype, channel);
             }
           }
-          else if (strcmp(field, "FAST") == 0) {
-            if (channel == 9 || channel == 10) { // 8 or 16 bit channel
-              if (BitDepth == 8) {
-                PWMtype = FastPWM_8bit;
-                Serial.println(F("Fast 8 bit PWM"));
-              }
-              else if (BitDepth == 9) {
-                PWMtype = FastPWM_9bit;
-                Serial.println(F("Fast 9 bit PWM"));
-              }
-              else if (BitDepth == 10) {
-                PWMtype = FastPWM_10bit;
-                Serial.println(F("Fast 10 bit PWM"));
+          else if (strcmp(field, "PHASE_CORRECT") == 0) {
+            if (channel == 9 || channel == 10) { // variable resolution channel
+              getField(field, 6);
+              if (strcmp(field, "ICR") == 0 || strcmp(field, "OCR") == 0) {
+                getField(field, 6);
+                if (BitDepth >= 3 && BitDepth <= 65535) {
+                  if (strcmp(field, "ICR") == 0) {
+                    PWMtype = PhaseCorrectPWM_ICR;
+                  }
+                  else {
+                    PWMtype = PhaseCorrectPWM_OCR16bit;
+                    if (channel == 9) {
+                      ValidField = false;
+                      PrintFieldError(0);
+                    }
+                  }
+                  PrintPWMtype(PWMtype, channel);
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(1);
+                }
               }
               else {
-                ValidField = false;
-                Serial.println(F("FIELD 1 ERROR"));
+                if (BitDepth == 8) {
+                  PWMtype = PhaseCorrectPWM_8bit;
+                }
+                else if (BitDepth == 9) {
+                  PWMtype = PhaseCorrectPWM_9bit;
+                }
+                else if (BitDepth == 10) {
+                  PWMtype = PhaseCorrectPWM_10bit;
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(1);
+                }
+                if (ValidField == true) {
+                  PrintPWMtype(PWMtype, channel);
+                }
               }
             }
             else { // 8 bit only channel
-              PWMtype = FastPWM;
-              Serial.println(F("Fast PWM"));
+              getField(field, 6);
+              PWMtype = PhaseCorrectPWM;
+              if (strcmp(field, "OCR") == 0) {
+                PWMtype = PhaseCorrectPWM_OCR;
+                if (channel == 6 || channel == 11) {
+                  ValidField = false;
+                  PrintFieldError(0);
+                }
+              }
+              else if (BitDepth != 8) {
+                ValidField = false;
+                PrintFieldError(1);
+              }
+              PrintPWMtype(PWMtype, channel);
+            }
+          }
+          else if (strcmp(field, "PHASE_FREQ_CORRECT") == 0) {
+            if (channel == 9 || channel == 10) { // variable resolution channel
+              getField(field, 6);
+              if (strcmp(field, "ICR") == 0 || strcmp(field, "OCR") == 0) {
+                if (BitDepth >= 3 && BitDepth <= 65535) {
+                  if (strcmp(field, "ICR") == 0) {
+                    PWMtype = PhaseFrequencyCorrectPWM_ICR;
+                  }
+                  else {
+                    PWMtype = PhaseFrequencyCorrectPWM_OCR16bit;
+                    if (channel == 9) {
+                      ValidField = false;
+                      PrintFieldError(0);
+                    }
+                  }
+                  PrintPWMtype(PWMtype, channel);
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(1);
+                }
+              }
+              else {
+                ValidField = false;
+                PrintFieldError(6);
+              }
+            }
+            else {
+              ValidField = false;
+              Serial.println(F("Phase and frequency correct PWM not supported on this pin"));
             }
           }
           else {
             ValidField = false;
-            Serial.println(F("FIELD 2 ERROR"));
+            PrintFieldError(2);
           }
           getField(field, 3);
           byte PWMpolarity;
           if (strcmp(field, "NORMAL") == 0) {
             PWMpolarity = NORMAL;
-            Serial.println(F("Normal polarity"));
+            Serial.print(F("Normal "));
           }
           else if (strcmp(field, "INVERTED") == 0) {
             PWMpolarity = INVERTED;
-            Serial.println(F("Inverted polarity"));
+            Serial.print(F("Inverted "));
           }
           else {
             ValidField = false;
-            Serial.println(F("FIELD 3 ERROR"));
+            PrintFieldError(3);
+          }
+          if (ValidField == true) {
+            Serial.println(F("polarity"));
           }
           getField(field, 4);
           bool ExternalCLK = false;
@@ -230,57 +425,56 @@ void loop() {
             if (strcmp(field, "T0_EXT_RISING") == 0) {
               ExternalCLK = true;
               RisingCLK = true;
-              Serial.println(F("T0 external clock, rising"));
             }
             else if (strcmp(field, "T0_EXT_FALLING") == 0) {
               ExternalCLK = true;
-              Serial.println(F("T0 external clock, falling"));
+            }
+            if (ExternalCLK == true) {
+              PrintExternalClockType(channel, RisingCLK);
             }
           }
           else if (channel == 9 || channel == 10) { // pins which can be clocked via the T0 pin
             if (strcmp(field, "T1_EXT_RISING") == 0) {
               ExternalCLK = true;
               RisingCLK = true;
-              Serial.println(F("T1 external clock, rising"));
             }
             else if (strcmp(field, "T1_EXT_FALLING") == 0) {
               ExternalCLK = true;
-              Serial.println(F("T1 external clock, falling"));
+            }
+            if (ExternalCLK == true) {
+              PrintExternalClockType(channel, RisingCLK);
             }
           }
           if (ExternalCLK == false) {
             prescaler_int = atoi(field);
             if (prescaler_int == 1) {
               prescaler = PS_NONE;
-              Serial.println(F("Prescaler: 1"));
             }
             else if (prescaler_int == 8) {
               prescaler = PS_8;
-              Serial.println(F("Prescaler: 8"));
             }
             else if (prescaler_int == 32 && (channel == 3 || channel == 11)) { // pins which support this prescaler ratio
               prescaler = PS_32;
-              Serial.println(F("Prescaler: 32"));
             }
             else if (prescaler_int == 64) {
               prescaler = PS_64;
-              Serial.println(F("Prescaler: 64"));
             }
             else if (prescaler_int == 128 && (channel == 3 || channel == 11)) { // pins which support this prescaler ratio
               prescaler = PS_128;
-              Serial.println(F("Prescaler: 128"));
             }
             else if (prescaler_int == 256) {
               prescaler = PS_256;
-              Serial.println(F("Prescaler: 256"));
             }
             else if (prescaler_int == 1024) {
               prescaler = PS_1024;
-              Serial.println(F("Prescaler: 1024"));
             }
             else {
               ValidField = false;
-              Serial.println(F("FIELD 4 ERROR"));
+              PrintFieldError(4);
+            }
+            if (ValidField == true) {
+              Serial.print(F("Prescaler: "));
+              Serial.println(prescaler_int);
             }
           }
           getField(field, 5);
@@ -288,9 +482,13 @@ void loop() {
           word PWMvalue = PWMvalue_long;
           Serial.print(F("PWM value: "));
           Serial.println(PWMvalue_long);
-          if ((BitDepth == 8 && PWMvalue_long > 255) || (BitDepth == 9 && PWMvalue_long > 511) || (BitDepth == 10 && PWMvalue_long > 1023)) {
+          if (((PWMtype == PhaseFrequencyCorrectPWM_ICR || PWMtype == PhaseCorrectPWM_ICR || PWMtype == FastPWM_ICR || PWMtype == FastPWM_OCR || PWMtype == PhaseCorrectPWM_OCR || PWMtype == PhaseFrequencyCorrectPWM_OCR16bit || PWMtype == PhaseCorrectPWM_OCR16bit || PWMtype == FastPWM_OCR16bit) && PWMvalue_long > BitDepth) ||
+              ((PWMtype == FastPWM_8bit || PWMtype == PhaseCorrectPWM_8bit || PWMtype == FastPWM || PWMtype == PhaseCorrectPWM) && PWMvalue_long > 255) ||
+              ((PWMtype == FastPWM_9bit || PWMtype == PhaseCorrectPWM_9bit) && PWMvalue_long > 511) ||
+              ((PWMtype == FastPWM_10bit || PWMtype == PhaseCorrectPWM_10bit) && PWMvalue_long > 1023))
+          {
             ValidField = false;
-            Serial.println(F("FIELD 5 ERROR"));
+            PrintFieldError(5);
           }
           if (ValidField == true) {
             if (ExternalCLK == true && (channel == 5 || channel == 6 || channel == 9 || channel == 10)) { // pins which support 16 bit PWM and can be externally clocked via the T0 (5/6) or T1 (9/10) pins
@@ -312,16 +510,16 @@ void loop() {
               }
             }
             AdvancedAnalogWrite.init(channel, BitDepth, PWMtype, PWMpolarity);
-            AdvancedAnalogWrite.write(channel, BitDepth, PWMvalue);
+            AdvancedAnalogWrite.write(channel, PWMvalue, PWMtype);
             AdvancedAnalogWrite.start(channel, prescaler);
           }
         }
       }
       if (ValidField == true) {
-        PrintOK();
+        Serial.println(F("OK"));
       }
       else {
-        PrintError();
+        Serial.println(F("ERROR"));
       }
       FlushSerialBuffer();
     }
