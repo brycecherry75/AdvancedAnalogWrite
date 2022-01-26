@@ -144,6 +144,106 @@ void AdvancedAnalogWriteClass::start(uint8_t pin, uint8_t prescaler) {
   }
 }
 
+uint16_t AdvancedAnalogWriteClass::initWithFrequency(uint8_t pin, uint32_t freq, uint8_t mode, uint8_t polarity, uint32_t *ActualFrequency, uint8_t *PrescalerValue) {
+  uint32_t temp = F_CPU;
+  uint16_t PWMprescaler = 1;
+  if (mode == PhaseCorrectPWM || mode == PhaseCorrectPWM_OCR || mode == PhaseFrequencyCorrectPWM_ICR || mode == PhaseCorrectPWM_ICR || mode == PhaseFrequencyCorrectPWM_OCR16bit || mode == PhaseCorrectPWM_OCR16bit) { // Phase Correct PWM will be half frequency
+    temp /= 2;
+  }
+  if ((pin == 5 || pin == 3) && (mode == FastPWM_OCR || mode == PhaseCorrectPWM_OCR)) { // 8 bit PWM
+    if ((temp / freq) <= 256 && (temp / freq) >= 4) {
+      PrescalerValue[0] = PS_NONE;
+    }
+    else if ((temp / freq / 8) <= 256 && (temp / freq / 8) >= 4) {
+      PWMprescaler = 8;
+      PrescalerValue[0] = PS_8;
+    }
+    else if (pin == 3 && (temp / freq / 32) <= 256 && (temp / freq / 32) >= 4) { // only supported by OC2x
+      PWMprescaler = 32;
+      PrescalerValue[0] = PS_32;
+    }
+    else if ((temp / freq / 64) <= 256 && (temp / freq / 64) >= 4) {
+      PWMprescaler = 64;
+      PrescalerValue[0] = PS_64;
+    }
+    else if (pin == 3 && (temp / freq / 128) <= 256 && (temp / freq / 128) >= 4) { // only supported by OC2x
+      PWMprescaler = 128;
+      PrescalerValue[0] = PS_128;
+    }
+    else if ((temp / freq / 256) <= 256 && (temp / freq / 256) >= 4) {
+      PWMprescaler = 256;
+      PrescalerValue[0] = PS_256;
+    }
+    else if ((temp / freq / 1024) <= 256 && (temp / freq / 1024) >= 4) {
+      PWMprescaler = 1024;
+      PrescalerValue[0] = PS_1024;
+    }
+    else { // frequency is out of range (divider is outside (4 to 256) - 1 according to microcontroller datasheet)
+      return 0;
+    }
+  }
+  else if ((pin == 9 && (mode == PhaseFrequencyCorrectPWM_ICR || mode == PhaseCorrectPWM_ICR || mode == FastPWM_ICR)) ||
+           (pin == 10 && (mode == PhaseFrequencyCorrectPWM_OCR16bit || mode == PhaseFrequencyCorrectPWM_ICR || mode == PhaseCorrectPWM_ICR || mode == FastPWM_ICR || mode == PhaseCorrectPWM_OCR16bit || mode == FastPWM_OCR16bit)))
+  { // 16 bit PWM
+    if ((temp / freq) <= 65536UL && (temp / freq) >= 4) {
+      PrescalerValue[0] = PS_NONE;
+    }
+    else if ((temp / freq / 8) <= 65536UL && (temp / freq / 8) >= 4) {
+      PWMprescaler = 8;
+      PrescalerValue[0] = PS_8;
+    }
+    else if ((temp / freq / 64) <= 65536UL && (temp / freq / 64) >= 4) {
+      PWMprescaler = 64;
+      PrescalerValue[0] = PS_64;
+    }
+    else if ((temp / freq / 256) <= 65536UL && (temp / freq / 256) >= 4) {
+      PWMprescaler = 256;
+      PrescalerValue[0] = PS_256;
+    }
+    else if ((temp / freq / 1024) <= 65536UL && (temp / freq / 1024) >= 4) {
+      PWMprescaler = 1024;
+      PrescalerValue[0] = PS_1024;
+    }
+    else { // frequency is out of range (divider is outside (4 to 65536) - 1 according to microcontroller datasheet)
+      return 0;
+    }
+  }
+  else { // not a supported pin or mode supported by this pin
+    return 0;
+  }
+  uint32_t MaximumPWMvalue = (temp / freq / PWMprescaler); // 16000000 / 120000 = 133 rounded down
+  uint32_t RoundedUpFrequencyError = (temp / MaximumPWMvalue / PWMprescaler); // now 120300
+  uint32_t RoundedDownFrequencyError = (temp / (MaximumPWMvalue + 1) / PWMprescaler); // now 119402
+  if (RoundedUpFrequencyError >= freq) { // now 300 - should take this fork for 120 kHz (actual 120.3 kHz) PWM with a 16 MHz CPU
+    RoundedUpFrequencyError -= freq;
+  }
+  else { // now 300
+    RoundedUpFrequencyError = (freq - RoundedUpFrequencyError);
+  }
+  if (RoundedDownFrequencyError >= freq) { // now 598
+    RoundedDownFrequencyError -= freq;
+  }
+  else { // now 598 - should take this fork for 120 kHz (actual 120.3 kHz) PWM with a 16 MHz CPU
+    RoundedDownFrequencyError = (freq - RoundedDownFrequencyError);
+  }
+  if (((pin == 9 || pin == 10) && MaximumPWMvalue < 65536UL) || MaximumPWMvalue < 256) { // overflow will not occur under these conditions
+    if (RoundedUpFrequencyError > RoundedDownFrequencyError) {
+      MaximumPWMvalue++;
+      freq -= RoundedDownFrequencyError;
+    }
+    else { // should take this fork for 120 kHz (actual 120.3 kHz) PWM with a 16 MHz CPU
+      freq += RoundedUpFrequencyError;
+    }
+  }
+  else { // minimize frequency error by not using a higher prescaler on maximum PWM value
+    freq += RoundedUpFrequencyError;
+  }
+  ActualFrequency[0] = freq;
+  MaximumPWMvalue--; // frequency divisor at the microcontroller will be (MaximumPWMvalue + 1) and will be no greater than 65535 (16 bit) or 255 (8 bit)
+  init(pin, MaximumPWMvalue, mode, polarity);
+  return MaximumPWMvalue;
+}
+
 void AdvancedAnalogWriteClass::stop(uint8_t pin) {
   switch (pin) {
     case 6:

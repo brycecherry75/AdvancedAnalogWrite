@@ -24,20 +24,20 @@ const byte PS_32 = 13;
 const byte PS_128 = 15;
 
 const byte PWM_8bitParameterMask = 0x10; // deal with overlap of definitions of Pins 9/10 and will be masked out on init()
-const byte FastPWM = (3 | PWM_8bitParameterMask); // 8 bit only
 const byte PhaseCorrectPWM = (1 | PWM_8bitParameterMask); // 8 bit only
-const byte FastPWM_OCR = (7 | PWM_8bitParameterMask); // 8 bit only 
+const byte FastPWM = (3 | PWM_8bitParameterMask); // 8 bit only
 const byte PhaseCorrectPWM_OCR = (5 | PWM_8bitParameterMask); // 8 bit only 
-const byte FastPWM_8bit = 5; // Pins 9/10 only
-const byte FastPWM_9bit = 6; // Pins 9/10 only
-const byte FastPWM_10bit = 7; // Pins 9/10 only
+const byte FastPWM_OCR = (7 | PWM_8bitParameterMask); // 8 bit only 
 const byte PhaseCorrectPWM_8bit = 1; // Pins 9/10 only
 const byte PhaseCorrectPWM_9bit = 2; // Pins 9/10 only
 const byte PhaseCorrectPWM_10bit = 3; // Pins 9/10 only
+const byte FastPWM_8bit = 5; // Pins 9/10 only
+const byte FastPWM_9bit = 6; // Pins 9/10 only
+const byte FastPWM_10bit = 7; // Pins 9/10 only
 const byte PhaseFrequencyCorrectPWM_ICR = 8; // Pins 9/10 only
+const byte PhaseFrequencyCorrectPWM_OCR16bit = 9; // Pins 9/10 only
 const byte PhaseCorrectPWM_ICR = 10; // Pins 9/10 only
 const byte FastPWM_ICR = 14; // Pins 9/10 only
-const byte PhaseFrequencyCorrectPWM_OCR16bit = 9; // Pins 9/10 only
 const byte PhaseCorrectPWM_OCR16bit = 11; // Pins 9/10 only
 const byte FastPWM_OCR16bit = 15; // Pins 9/10 only
 const byte NORMAL = 0;
@@ -47,6 +47,7 @@ const byte INVERTED = 1;
 class AdvancedAnalogWriteClass {
   public:
     void init(uint8_t pin, uint16_t BitDepth, uint8_t mode, uint8_t polarity);
+    uint16_t initWithFrequency(uint8_t pin, uint32_t freq, uint8_t mode, uint8_t polarity, uint32_t *ActualFrequency, uint8_t *PrescalerValue); // returns maximum PWM value - 0 if out of range
     void start(uint8_t pin, uint8_t prescaler);
     void stop(uint8_t pin);
     void write(uint8_t pin, uint16_t value, uint8_t PWMmode);

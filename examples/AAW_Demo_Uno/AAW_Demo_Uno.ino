@@ -10,6 +10,7 @@
    Pin number, bit resolution (8/9/10 is supported only on Pins 9/10 - all others are 8), polarity, prescaler (T0_EXT_RISING/T0_EXT_FALLING is supported only on Pins 6/5, T1_EXT_RISING/T1_EXT_FALLING is supported only on Pins 9/10, 32 and 128 is supported only on on Pins 3/11)
    (3/5/6/9/10/11) INCREMENT value - increments PWM by a given value on a given pin (will not overflow)
    (3/5/6/9/10/11) DECREMENT value - decrements PWM by a given value on a given pin (will not underflow)
+   (3/5/6/9/10/11) VARIABLE_FREQ frequency (PHASE_CORRECT/FAST/PHASE_FREQ_CORRECT) (NORMAL/INVERTED) (ICR/OCR) value: Initialize pin, set frequency, mode, value
 
 */
 
@@ -25,7 +26,7 @@ const byte SerialPortRateTolerance = 5; // percent - increase to 50 for rates ab
 const byte SerialPortBits = 10; // start (1), data (8), stop (1)
 const unsigned long TimePerByte = ((((1000000ULL * SerialPortBits) / SerialPortRate) * (100 + SerialPortRateTolerance)) / 100); // calculated on serial port rate + tolerance and rounded down to the nearest uS, long caters for even the slowest serial port of 75 bps
 
-const byte commandSize = 50;
+const byte commandSize = 75;
 char command[commandSize];
 const byte FieldSize = 25;
 
@@ -200,7 +201,132 @@ void loop() {
           PrintFieldError(0);
         }
         getField(field, 1);
-        if (strcmp(field, "STOP") == 0) {
+        if (strcmp(field, "VARIABLE_FREQ") == 0) {
+          StopPWM = true;
+          getField(field, 2);
+          unsigned long frequency = atol(field);
+          byte PWMtype;
+          getField(field, 3);
+          if (strcmp(field, "PHASE_CORRECT") == 0) {
+            getField(field, 5);
+            if (strcmp(field, "ICR") == 0) {
+              PWMtype = PhaseCorrectPWM_ICR;
+              if (channel != 9 && channel != 10) {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else if (strcmp(field, "OCR") == 0) {
+              if (channel == 10) {
+                PWMtype = PhaseCorrectPWM_OCR16bit;
+              }
+              else if (channel == 5 || channel == 3) {
+                PWMtype = PhaseCorrectPWM_OCR;
+              }
+              else {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else {
+              ValidField = false;
+              PrintFieldError(5);
+            }
+          }
+          else if (strcmp(field, "FAST") == 0) {
+            getField(field, 5);
+            if (strcmp(field, "ICR") == 0) {
+              PWMtype = FastPWM_ICR;
+              if (channel != 9 && channel != 10) {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else if (strcmp(field, "OCR") == 0) {
+              if (channel == 10) {
+                PWMtype = FastPWM_OCR16bit;
+              }
+              else if (channel == 5 || channel == 3) {
+                PWMtype = FastPWM_OCR;
+              }
+              else {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else {
+              ValidField = false;
+              PrintFieldError(5);
+            }
+          }
+          else if (strcmp(field, "PHASE_FREQ_CORRECT") == 0) {
+            getField(field, 5);
+            if (strcmp(field, "ICR") == 0) {
+              PWMtype = PhaseFrequencyCorrectPWM_ICR;
+              if (channel != 9 && channel != 10) {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else if (strcmp(field, "OCR") == 0) {
+              PWMtype = PhaseFrequencyCorrectPWM_OCR16bit;
+              if (channel != 10) {
+                ValidField = false;
+                PrintFieldError(0);
+              }
+            }
+            else {
+              ValidField = false;
+              PrintFieldError(5);
+            }
+          }
+          else {
+            ValidField = false;
+            PrintFieldError(3);
+          }
+          getField(field, 6);
+          word PWMvalue = atol(field);
+          PrintPWMtype(PWMtype, channel);
+          if (ValidField == true) {
+            getField(field, 4);
+            byte polarity;
+            if (strcmp(field, "NORMAL") == 0) {
+              polarity = NORMAL;
+            }
+            else if (strcmp(field, "INVERTED") == 0) {
+              polarity = INVERTED;
+            }
+            else {
+              ValidField = false;
+              PrintFieldError(4);
+            }
+            if (ValidField == true) {
+              unsigned long ActualFrequency[1];
+              byte PrescalerValue[1];
+              word MaximumPWMvalue = AdvancedAnalogWrite.initWithFrequency(channel, frequency, PWMtype, polarity, ActualFrequency, PrescalerValue);
+              if (MaximumPWMvalue != 0) {
+                Serial.print(F("Maximum PWM value is "));
+                Serial.println(MaximumPWMvalue);
+                Serial.print(F("Actual PWM frequency is "));
+                Serial.print(ActualFrequency[0]);
+                Serial.println(F(" Hz"));
+                if (PWMvalue <= MaximumPWMvalue) {
+                  AdvancedAnalogWrite.write(channel, PWMvalue, PWMtype);
+                  AdvancedAnalogWrite.start(channel, PrescalerValue[0]);
+                }
+                else {
+                  ValidField = false;
+                  PrintFieldError(6);
+                }
+              }
+              else {
+                ValidField = false;
+                PrintFieldError(2);
+              }
+            }
+          }
+        }
+        else if (strcmp(field, "STOP") == 0) {
           StopPWM = true;
           if (ValidField == true) {
             AdvancedAnalogWrite.stop(channel);
