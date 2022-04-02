@@ -5,6 +5,10 @@
 
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega88__) || defined(__AVR_ATmega88__) || defined(__AVR_ATmega48__)
 
+const byte AvailablePrescalersPerTimer = 7; // excluding normal mode (timer/counter unused)
+const byte AvailablePWMmodesPerTimer = 12; // the largest among all channels
+const byte Minimum_OCRA_ICR = 3;
+
 // For all Timers/Counters
 const byte PS_STOP = 0;
 const byte PS_NONE = 1;
@@ -22,6 +26,9 @@ const byte T1_EXT_RISING = 7;
 // For Timer/Counter 2
 const byte PS_32 = 13;
 const byte PS_128 = 15;
+
+const byte T_EXT_RISING = 6;
+const byte T_EXT_FALLING = 7;
 
 const byte PWM_8bitParameterMask = 0x10; // deal with overlap of definitions of Pins 9/10 and will be masked out on init()
 const byte PhaseCorrectPWM = (1 | PWM_8bitParameterMask); // 8 bit only
@@ -55,6 +62,11 @@ class AdvancedAnalogWriteClass {
     void decrement(uint8_t pin, uint16_t value);
     void RestartMillisMicros(); // re-enables millis()/micros()/delay() from its last count and delay()/delayMicroseconds()
     uint16_t read(uint8_t pin);
+    void ReturnAvailablePrescalers(uint8_t pin, uint16_t *AvailablePrescalers, uint8_t *AvailablePrescalers_byte);
+    uint32_t ReturnMaximumPWMvalue(uint8_t pin);
+    bool ExternalClockCapabilityCheck(uint8_t pin);
+    uint8_t ReturnTpin(uint8_t pin);
+    void ReturnAvailablePWMmodes(uint8_t pin, uint8_t *AvailablePWMmodes);
 };
 
     // Arduino Leonardo etc

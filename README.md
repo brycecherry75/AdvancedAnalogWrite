@@ -12,6 +12,8 @@ Revisions
 
 1.2.0	Added initialization with a PWM frequency option
 
+1.3.0	Added query functions and demo sketch is now universal
+
 FEATURES:
 
 Supported boards (and derivatives): Uno (Mega/Leonardo/ATmega8 will be included in a later release)
@@ -37,11 +39,11 @@ polarity: NORMAL/INVERTED - independent for each pin
 
 mode: Common to a given set of pins
 
-mode (Uno):
+mode:
 
-FastPWM(OCR) and PhaseCorrectPWM(OCR) (both 8 bit) is only supported on Pins 6/5/11/3
+FastPWM(OCR) and PhaseCorrectPWM(OCR) (both 8 bit) is only supported on 8 bit counters
 
-FastPWM_8bit/FastPWM_9bit/FastPWM_10bit/PhaseCorrectPWM_8bit/PhaseCorrectPWM_9bit/PhaseCorrectPWM_10bit/PhaseFrequencyCorrectPWM_ICR/PhaseCorrectPWM_ICR/FastPWM_ICR is only supported on Pins 9/10
+FastPWM_8bit/FastPWM_9bit/FastPWM_10bit/PhaseCorrectPWM_8bit/PhaseCorrectPWM_9bit/PhaseCorrectPWM_10bit/PhaseFrequencyCorrectPWM_ICR/PhaseCorrectPWM_ICR/FastPWM_ICR is only supported on 16 bit counters
 
 When an OCR option is used, PWM cannot be used on an OCxA pin for a given set
 
@@ -50,15 +52,9 @@ If ICR or OCR16bit options are used, BitDepth becomes MaximumPWMvalue (3-65535)
 
 start(pin, prescaler): Start PWM on a certain pin - prescaler is common to a given set of pins
 
-prescaler (Uno):
+prescaler:
 
-PS_NONE/PS_8/PS_64/PS_256/PS_1024 is supported on all pins
-
-PS_32 and PS_128 is also supported only on Pins 11/3
-
-T0_EXT_FALLING/T0_EXT_RISING is also supported only on Pins 6/5 with an external clock applied to Pin 4 
-
-T1_EXT_FALLING/T1_EXT_RISING is also supported only on Pins 9/10 with an external clock applied to Pin 5
+T_EXT_FALLING/T_EXT_RISING is also supported only on OCx pins with a correspond Tx hardware function pin
 
 
 stop(pin): Stop PWM on a certain pin
@@ -74,6 +70,19 @@ RestartMillisMicros(): Disables PWM on pins used by the timer (usually Timer/Cou
 
 read(pin): Reads the PWM value of a certain pin
 
+RestartMillisMicros(): Disables clock output on pins used by the timer (usually Timer/Counter 0 and its corresponding OCxx pins) and restarts millis()/micros()/delay()
+
+ReturnAvailablePrescalers(pin, *AvaiablePrescalers, *AvailablePrescalers_byte)): Returns available internal prescalers to *AvailablePrescalers (uint16_t) and *AvailablePrescalers_byte based on a given pin; a 0 indicates the end of the number of prescalers and the array passed to *AvailablePrescalers is AvailablePrescalersPerTimer - the corresponding AvailablePrescalers_byte array value is used for start()
+
+ReturnMaximumPWMvalue(pin): Returns a uint32_t maximum PWM value on a given pin (result will be 0 if unsupported)
+
+ExternalClockCapabilityCheck(pin): Returns a bool if this pin can be externally clocked by a Tx pin input
+
+ReturnTpin(pin): Returns the T input hardware function e.g. on an ATmega328P, 5/6 (OC0x) will return 0 for T0 and 9/10 (OC1x) will return 1 for T1; otherwise, it will return 255 if a pin does not support external clocking by a T pin
+
+ReturnAvailablePWMmodes(pin, *AvailablePWMmodes): Returns *AvailablePWMmodes (uint8_t) based on a given pin; a 0 indicates the end of the number of PWM modes and the array passed to *AvailablePWMmodes is AvailablePWMmodesPerTimer
+
+Minimum_OCRA_ICR is used for variable frequency based on OCRA and ICR values.
 
 PIN DETAILS WITH PWM RESOLUTIONS (T pin is not used by millis/micros/delay - first pin is OCxA):
 

@@ -466,6 +466,131 @@ uint16_t AdvancedAnalogWriteClass::read(uint8_t pin) {
   return value;
 }
 
+void AdvancedAnalogWriteClass::ReturnAvailablePrescalers(uint8_t pin, uint16_t *AvailablePrescalers, uint8_t *AvailablePrescalers_byte) {
+  for (int i = 0; i < AvailablePrescalersPerTimer; i++) {
+    AvailablePrescalers[i] = 0;
+  }
+  switch (pin) {
+    case 6: // OC0A
+    case 5: // OC0B
+    case 9: // OC1A
+    case 10: // OC1B
+      AvailablePrescalers[0] = 1;
+      AvailablePrescalers[1] = 8;
+      AvailablePrescalers[2] = 64;
+      AvailablePrescalers[3] = 256;
+      AvailablePrescalers[4] = 1024;
+      AvailablePrescalers_byte[0] = PS_NONE;
+      AvailablePrescalers_byte[1] = PS_8;
+      AvailablePrescalers_byte[2] = PS_64;
+      AvailablePrescalers_byte[3] = PS_256;
+      AvailablePrescalers_byte[4] = PS_1024;
+      break;
+    case 11: // OC2A
+    case 3: // OC2B
+      AvailablePrescalers[0] = 1;
+      AvailablePrescalers[1] = 8;
+      AvailablePrescalers[2] = 32;
+      AvailablePrescalers[3] = 64;
+      AvailablePrescalers[4] = 128;
+      AvailablePrescalers[5] = 256;
+      AvailablePrescalers[6] = 1024;
+      AvailablePrescalers_byte[0] = PS_NONE;
+      AvailablePrescalers_byte[1] = PS_8;
+      AvailablePrescalers_byte[2] = PS_32;
+      AvailablePrescalers_byte[3] = PS_64;
+      AvailablePrescalers_byte[4] = PS_128;
+      AvailablePrescalers_byte[5] = PS_256;
+      AvailablePrescalers_byte[6] = PS_1024;
+      break;
+  }
+}
+
+uint32_t AdvancedAnalogWriteClass::ReturnMaximumPWMvalue(uint8_t pin) {
+  uint32_t MaximumValue = 0;
+  switch (pin) {
+    case 6: // OC0A
+    case 5: // OC0B
+    case 11: // OC2A
+    case 3: // OC2A
+      MaximumValue = 255;
+      break;
+    case 9: // OC1A
+    case 10: // OC1B
+      MaximumValue = 65535UL;
+      break;
+  }
+  return MaximumValue;
+}
+
+bool AdvancedAnalogWriteClass::ExternalClockCapabilityCheck(uint8_t pin) {
+  bool CanBeExternallyClocked = false;
+  switch (pin) {
+    case 6: // OC0A
+    case 5: // OC0B
+    case 9: // OC1A
+    case 10: // OC1B
+      CanBeExternallyClocked = true;
+      break;
+  }
+  return CanBeExternallyClocked;
+}
+
+
+uint8_t AdvancedAnalogWriteClass::ReturnTpin(uint8_t pin) {
+  uint8_t Tpin = 255;
+  switch (pin) {
+    case 6: // OC0A
+    case 5: // OC0B
+      Tpin = 0;
+      break;
+    case 9: // OC1A
+    case 10: // OC1B
+      Tpin = 1;
+      break;
+  }
+  return Tpin;
+}
+
+void AdvancedAnalogWriteClass::ReturnAvailablePWMmodes(uint8_t pin, uint8_t *AvailablePWMmodes) {
+  for (int i = 0; i < AvailablePWMmodesPerTimer; i++) {
+    AvailablePWMmodes[i] = 0x00; // stop
+  }
+  switch (pin) {
+    case 6: // OC0A
+    case 5: // OC0A
+    case 11: // OC2A
+    case 3: // OC2B
+      AvailablePWMmodes[0] = PhaseCorrectPWM;
+      AvailablePWMmodes[1] = FastPWM;
+      break;
+    case 9: // OC1A
+    case 10: // OC1B
+      AvailablePWMmodes[0] = PhaseCorrectPWM_8bit;
+      AvailablePWMmodes[1] = PhaseCorrectPWM_9bit;
+      AvailablePWMmodes[2] = PhaseCorrectPWM_10bit;
+      AvailablePWMmodes[3] = FastPWM_8bit;
+      AvailablePWMmodes[4] = FastPWM_9bit;
+      AvailablePWMmodes[5] = FastPWM_10bit;
+      AvailablePWMmodes[6] = PhaseFrequencyCorrectPWM_ICR;
+      AvailablePWMmodes[7] = PhaseCorrectPWM_ICR;
+      AvailablePWMmodes[8] = FastPWM_ICR;
+      break;
+  }
+  switch (pin) {
+    case 5: // OC0B
+    case 3: // OC2B
+      AvailablePWMmodes[2] = PhaseCorrectPWM_OCR;
+      AvailablePWMmodes[3] = FastPWM_OCR;
+      break;
+    case 10: // OC1B
+      AvailablePWMmodes[9] = PhaseFrequencyCorrectPWM_OCR16bit;
+      AvailablePWMmodes[10] = PhaseCorrectPWM_OCR16bit;
+      AvailablePWMmodes[11] = FastPWM_OCR16bit;
+      break;
+  }
+}
+
 #endif
 
 AdvancedAnalogWriteClass AdvancedAnalogWrite;
