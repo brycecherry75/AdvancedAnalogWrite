@@ -67,6 +67,7 @@ class AdvancedAnalogWriteClass {
     bool ExternalClockCapabilityCheck(uint8_t pin);
     uint8_t ReturnTpin(uint8_t pin);
     void ReturnAvailablePWMmodes(uint8_t pin, uint8_t *AvailablePWMmodes);
+    void ResetCounter(uint8_t pin);
 };
 
     // Arduino Leonardo etc

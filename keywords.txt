@@ -11,6 +11,7 @@ RestartMillisMicros	KEYWORD2
 ReturnMaximumPWMvalue	KEYWORD2
 ReturnTpin	KEYWORD2
 ReturnAvailablePWMmodes	KEYWORD2
+ResetCounter	KEYWORD2
 
 PhaseCorrectPWM	LITERAL1
 PhaseCorrectPWM_ICR	LITERAL1

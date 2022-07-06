@@ -14,6 +14,8 @@ Revisions
 
 1.3.0	Added query functions and demo sketch is now universal
 
+1.3.1 Added counter reset function
+
 FEATURES:
 
 Supported boards (and derivatives): Uno (Mega/Leonardo/ATmega8 will be included in a later release)
@@ -27,6 +29,8 @@ Programmable PWM frequency prescaler with external T input for external clocking
 Ability to stop and resume micros()/millis()/delay() to avoid conflict with these functions
 
 Readback of current PWM value
+
+Reset of counter which can be useful for controlling a dual modulus prescaler
 
 USAGE:
 init(pin, BitDepth, mode, polarity): Initialize PWM on a certain pin and if set for external clocking, set the external clock input pin as an input and enable its pullup
@@ -81,6 +85,8 @@ ExternalClockCapabilityCheck(pin): Returns a bool if this pin can be externally 
 ReturnTpin(pin): Returns the T input hardware function e.g. on an ATmega328P, 5/6 (OC0x) will return 0 for T0 and 9/10 (OC1x) will return 1 for T1; otherwise, it will return 255 if a pin does not support external clocking by a T pin
 
 ReturnAvailablePWMmodes(pin, *AvailablePWMmodes): Returns *AvailablePWMmodes (uint8_t) based on a given pin; a 0 indicates the end of the number of PWM modes and the array passed to *AvailablePWMmodes is AvailablePWMmodesPerTimer
+
+ResetCounter(pin): Reset a counter
 
 Minimum_OCRA_ICR is used for variable frequency based on OCRA and ICR values.
 

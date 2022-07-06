@@ -591,6 +591,23 @@ void AdvancedAnalogWriteClass::ReturnAvailablePWMmodes(uint8_t pin, uint8_t *Ava
   }
 }
 
+void AdvancedAnalogWriteClass::ResetCounter(uint8_t pin) {
+  switch(pin) {
+    case 6: // OC0A
+    case 5: // OC0B
+      TCNT0 = 0;
+      break;
+    case 9: // OC1A
+    case 10: // OC1B
+      TCNT1 = 0;
+      break;
+    case 11: // OC2A
+    case 3: // OC2B
+      TCNT2 = 0;
+      break;
+  }
+}
+
 #endif
 
 AdvancedAnalogWriteClass AdvancedAnalogWrite;
